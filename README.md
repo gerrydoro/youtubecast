@@ -36,6 +36,7 @@ Import the flake into your system's `flake.nix`:
   outputs = { self, nixpkgs, youtubecast }: {
     nixosConfigurations.your-hostname = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
+      specialArgs = { inherit (youtubecast.inputs) bun2nix; };
       modules = [
         youtubecast.nixosModules.default
         ./configuration.nix

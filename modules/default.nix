@@ -4,6 +4,11 @@ with lib;
 
 let
   cfg = config.services.youtubecast;
+  bun2nix = config.specialArgs.bun2nix;
+  pkgsBun = import nixpkgs {
+    inherit (pkgs) system;
+    overlays = [ bun2nix.overlays.default ];
+  };
 in {
   options.services.youtubecast = {
     enable = mkOption {
@@ -14,7 +19,7 @@ in {
 
     package = mkOption {
       type = types.package;
-      default = import ../modules/youtubecast.nix { inherit pkgs; };
+      default = import ../modules/youtubecast.nix { inherit pkgsBun; };
       description = "YouTubeCast package derivation.";
     };
 
