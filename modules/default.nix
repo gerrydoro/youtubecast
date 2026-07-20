@@ -119,7 +119,7 @@ in {
 
   config = mkIf cfg.enable (
     let
-      pkg = import ../modules/youtubecast.nix { inherit pkgsBun; };
+      pkg = import ../modules/youtubecast.nix { pkgs = pkgsBun; };
     in {
       # Create service user and group
       users.groups.${cfg.group} = {};
