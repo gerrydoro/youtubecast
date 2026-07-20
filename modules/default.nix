@@ -4,7 +4,7 @@ with lib;
 
 let
   cfg = config.services.youtubecast;
-  libModule = import ./lib.nix { inherit pkgs; };
+  libModule = import ../lib.nix { inherit pkgs; };
 in {
   options.services.youtubecast = {
     enable = mkOption {
