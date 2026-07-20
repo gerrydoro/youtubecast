@@ -21,6 +21,30 @@ bun2nix ui-bun --dir ui        # Regenerate modules/ui-bun.nix (frontend deps)
 
 ## NixOS Module
 
+Import the flake into your system's `flake.nix`:
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    youtubecast = {
+      url = "github:trevorsharp/youtubecast";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs = { self, nixpkgs, youtubecast }: {
+    nixosConfigurations.your-hostname = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        youtubecast.nixosModules.default
+        ./configuration.nix
+      ];
+    };
+  };
+}
+```
+
 Enable with `services.youtubecast.enable = true`. The module generates `settings.json` and manages a systemd service with nginx.
 
 ### Options

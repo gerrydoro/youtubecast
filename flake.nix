@@ -11,11 +11,14 @@
   };
 
   outputs = { self, nixpkgs, bun2nix, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system: let
-      pkgs = import nixpkgs {
+    let
+      pkgsFor = system: import nixpkgs {
         inherit system;
         overlays = [ bun2nix.overlays.default ];
       };
+    in
+    flake-utils.lib.eachDefaultSystem (system: let
+      pkgs = pkgsFor system;
     in {
       packages = {
         default = self.packages.${system}.youtubecast;
@@ -24,13 +27,10 @@
         };
       };
 
-      apps = {
-        default = self.packages.${system}.youtubecast;
-        youtubecast = self.packages.${system}.youtubecast;
-      };
-
       devShells.default = import ./devshell.nix {
         inherit pkgs;
       };
-    });
+    }) // {
+      nixosModules.default = import ./modules/default.nix;
+    };
 }
