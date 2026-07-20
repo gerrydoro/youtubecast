@@ -5,7 +5,8 @@ with lib;
 let
   cfg = config.services.youtubecast;
   bun2nix = config.specialArgs.bun2nix;
-  pkgsBun = import config.nixpkgs {
+  nixpkgs = config.specialArgs.nixpkgs;
+  pkgsBun = import nixpkgs {
     inherit (pkgs) system;
     overlays = [ bun2nix.overlays.default ];
   };
