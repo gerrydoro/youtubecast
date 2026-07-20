@@ -17,12 +17,6 @@ in {
       description = "Whether to enable the YouTubeCast service.";
     };
 
-    package = mkOption {
-      type = types.package;
-      default = import ../modules/youtubecast.nix { inherit pkgsBun; };
-      description = "YouTubeCast package derivation.";
-    };
-
     port = mkOption {
       type = types.port;
       default = 3000;
@@ -132,6 +126,9 @@ in {
       group = cfg.group;
     };
 
+    # Build the package
+    _module.args.youtubecastPackage = import ../modules/youtubecast.nix { inherit pkgsBun; };
+
     # Generate settings.json
     environment.etc."youtubecast/settings.json" =
       let
@@ -179,7 +176,7 @@ in {
       after = [ "nginx.service" ];
 
       environment = {
-        APP_DIR = "${cfg.package}/app";
+        APP_DIR = "${_module.args.youtubecastPackage}/app";
         NGINX_CONF = "/etc/youtubecast/nginx.conf";
         CONTENT_DIR = cfg.contentDir;
         YOUTUBECAST_PORT = toString cfg.port;
@@ -204,7 +201,7 @@ in {
         User = cfg.user;
         Group = cfg.group;
         ExecStartPre = "";
-        ExecStart = "${cfg.package}/bin/youtubecast-start";
+        ExecStart = "${_module.args.youtubecastPackage}/bin/youtubecast-start";
         Restart = "on-failure";
         RuntimeDirectory = "youtubecast";
       };

@@ -51,7 +51,6 @@ Enable with `services.youtubecast.enable = true`. The module generates `settings
 ### Options
 
 - `enable` (bool, default: `false`) — Enable the YouTubeCast service.
-- `package` (package) — YouTubeCast package derivation (defaults to the flake package).
 - `port` (port, default: `3000`) — Port for nginx to listen on externally.
 - `settings` (submodule) — Equivalent to `settings.json`:
   - `youtubeApiKey` (str, default: `""`) — YouTube Data API v3 key.
