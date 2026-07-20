@@ -4,7 +4,6 @@ with lib;
 
 let
   cfg = config.services.youtubecast;
-  libModule = import ../lib.nix { inherit pkgs; };
 in {
   options.services.youtubecast = {
     enable = mkOption {
@@ -129,15 +128,27 @@ in {
     };
 
     # Generate settings.json
-    environment.etc."youtubecast/settings.json" = libModule.genSettings {
-      youtubeApiKey = cfg.settings.youtubeApiKey;
-      youtubeApiKeyFile = cfg.youtubeApiKeyFile;
-      downloadVideos = cfg.settings.downloadVideos;
-      maximumCompatibility = cfg.settings.maximumCompatibility;
-      highestQuality = cfg.settings.highestQuality;
-      cacheTimeToLive = cfg.settings.cacheTimeToLive;
-      minimumVideoDuration = cfg.settings.minimumVideoDuration;
-    };
+    environment.etc."youtubecast/settings.json" =
+      let
+        key = if cfg.youtubeApiKeyFile != null
+          then pkgs.lib.readFile cfg.youtubeApiKeyFile
+          else cfg.settings.youtubeApiKey;
+        dl = if cfg.settings.downloadVideos then "true" else "false";
+        mc = if cfg.settings.maximumCompatibility then "true" else "false";
+        hq = if cfg.settings.highestQuality then "true" else "false";
+      in
+      pkgs.runCommand "settings.json" { } ''
+        cat > $out <<EOF
+      {
+        "youtubeApiKey": "${key}",
+        "downloadVideos": ${dl},
+        "maximumCompatibility": ${mc},
+        "highestQuality": ${hq},
+        "cacheTimeToLive": "${toString cfg.settings.cacheTimeToLive}",
+        "minimumVideoDuration": "${toString cfg.settings.minimumVideoDuration}"
+      }
+      EOF
+      '';
 
     # Copy cookies file if provided
     environment.etc."youtubecast/cookies.txt" = mkIf (cfg.cookiesFile != null) {
@@ -145,9 +156,10 @@ in {
     };
 
     # Generate nginx config
-    environment.etc."youtubecast/nginx.conf" = libModule.genNginxConfig {
-      port = cfg.port;
-    };
+    environment.etc."youtubecast/nginx.conf" =
+      pkgs.runCommand "nginx.conf" { } ''
+        sed 's/${toString cfg.port}/${toString cfg.port}/g' ${./../nginx.conf} > $out
+      '';
 
     # Create content directory
     systemd.tmpfiles.rules = [
