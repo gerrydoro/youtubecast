@@ -3,7 +3,7 @@
 # Generate settings.json content from direct values or file paths
 genSettings = {
   youtubeApiKey ? ""
-, youtubeApiKeyFile ? ""
+, youtubeApiKeyFile ? null
 , downloadVideos ? false
 , maximumCompatibility ? false
 , highestQuality ? false
@@ -11,7 +11,7 @@ genSettings = {
 , minimumVideoDuration ? 180
 }:
 let
-  key = if youtubeApiKeyFile != ""
+  key = if youtubeApiKeyFile != null
     then pkgs.lib.readFile youtubeApiKeyFile
     else youtubeApiKey;
   dl = if downloadVideos then "true" else "false";

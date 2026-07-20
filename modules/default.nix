@@ -73,18 +73,18 @@ in {
     };
 
     youtubeApiKeyFile = mkOption {
-      type = types.path;
-      default = "";
+      type = types.nullOr types.path;
+      default = null;
       description = ''
         Path to a file containing the YouTube API key.
-        Takes precedence over settings.youtubeApiKey.
+        Takes precedence over `settings.youtubeApiKey`.
         Useful for SOPS-nix integration.
       '';
     };
 
     cookiesFile = mkOption {
-      type = types.path;
-      default = "";
+      type = types.nullOr types.path;
+      default = null;
       description = "Path to a cookies.txt file for authenticated YouTube content.";
     };
 
@@ -113,8 +113,8 @@ in {
     };
 
     environmentFile = mkOption {
-      type = types.path;
-      default = "";
+      type = types.nullOr types.path;
+      default = null;
       description = "Path to an environment file for service variables.";
     };
   };
@@ -140,7 +140,7 @@ in {
     };
 
     # Copy cookies file if provided
-    environment.etc."youtubecast/cookies.txt" = mkIf (cfg.cookiesFile != "") {
+    environment.etc."youtubecast/cookies.txt" = mkIf (cfg.cookiesFile != null) {
       source = cfg.cookiesFile;
     };
 
@@ -166,7 +166,7 @@ in {
         NGINX_CONF = "/etc/youtubecast/nginx.conf";
         CONTENT_DIR = cfg.contentDir;
         YOUTUBECAST_PORT = toString cfg.port;
-      } // optionalAttrs (cfg.environmentFile != "") {
+      } // optionalAttrs (cfg.environmentFile != null) {
         ENVIRONMENT_FILE = cfg.environmentFile;
       };
 
