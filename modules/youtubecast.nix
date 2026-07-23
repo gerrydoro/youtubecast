@@ -60,7 +60,8 @@ in pkgs.stdenvNoCC.mkDerivation {
       baseNameOf _name == "nginx.conf" ||
       (type == "directory" && baseNameOf _name == "src") ||
       (type == "file" && pkgs.lib.hasSuffix "/bun.lock" _name) ||
-      (type == "directory" && baseNameOf _name == "ui");
+      (type == "directory" && baseNameOf _name == "ui") ||
+      (type == "file" && pkgs.lib.hasSuffix ".ts" _name);
     src = ../.;
   };
 
