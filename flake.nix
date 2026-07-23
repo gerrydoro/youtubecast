@@ -3,7 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
+    flake_utils.url = "github:numtide/flake-utils";
     bun2nix.url = "github:nix-community/bun2nix?ref=2.1.2";
     bun2nix.inputs.nixpkgs.follows = "nixpkgs";
   };
@@ -18,20 +18,23 @@
   };
 
   outputs =
-    { self, nixpkgs, flake-utils, bun2nix }:
+    { self, nixpkgs, flake_utils, bun2nix }:
     let
       pkgsFor = system: import nixpkgs {
         inherit system;
         overlays = [ bun2nix.overlays.default ];
       };
     in
-    flake-utils.lib.eachDefaultSystem (system: let
+    flake_utils.lib.eachDefaultSystem (system: let
       pkgs = pkgsFor system;
+      bun2nixPkg = bun2nix.packages.${system}.bun2nix;
+      fetchBunDeps = bun2nixPkg.passthru.fetchBunDeps;
+      hook = bun2nixPkg.passthru.hook;
     in {
       packages = {
         default = self.packages.${system}.youtubecast;
         youtubecast = import ./modules/youtubecast.nix {
-          inherit pkgs;
+          inherit pkgs fetchBunDeps hook;
         };
       };
 

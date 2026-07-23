@@ -1,4 +1,4 @@
-{ pkgs }:
+{ pkgs, fetchBunDeps, hook }:
 
 let
   lib = pkgs.lib;
@@ -17,11 +17,11 @@ let
     libiconv
   ];
 
-  frontendDeps = pkgs.bun2nix.passthru.fetchBunDeps {
+  frontendDeps = fetchBunDeps {
     bunNix = ./bun-frontend.nix;
   };
 
-  backendDepsCache = pkgs.bun2nix.passthru.fetchBunDeps {
+  backendDepsCache = fetchBunDeps {
     bunNix = ./bun-root.nix;
   };
 
@@ -30,7 +30,7 @@ let
 
     src = ../ui;
 
-    nativeBuildInputs = [ pkgs.bun pkgs.bun2nix.passthru.hook ];
+    nativeBuildInputs = [ pkgs.bun hook ];
 
     bunDeps = frontendDeps;
 
@@ -64,7 +64,7 @@ in pkgs.stdenvNoCC.mkDerivation {
     src = ../.;
   };
 
-  nativeBuildInputs = commonDeps ++ [ pkgs.bun pkgs.bun2nix.passthru.hook ];
+  nativeBuildInputs = commonDeps ++ [ pkgs.bun hook ];
   buildInputs = backendDeps;
 
   dontUseBunBuild = true;

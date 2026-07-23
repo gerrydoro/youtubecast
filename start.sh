@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-APP_DIR="${@:-/app}"
+APP_DIR="${APP_DIR:-/app}"
 CONTENT_DIR="${YOUTUBECAST_CONTENT_DIR:-/var/lib/youtubecast}"
 NGINX_PORT="${YOUTUBECAST_PORT:-3000}"
 BUN_PORT=3001
@@ -10,7 +10,7 @@ BUN_PORT=3001
 mkdir -p "$CONTENT_DIR"
 
 # Write nginx config with the correct port
-sed "s/${port}/$NGINX_PORT/" "$APP_DIR/nginx.conf" > /tmp/youtubecast-nginx.conf
+sed "s/\${port}/$NGINX_PORT/" "$APP_DIR/nginx.conf" > /tmp/youtubecast-nginx.conf
 
 # Start nginx
 nginx -c /tmp/youtubecast-nginx.conf -g "daemon off;" &

@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, specialArgs ? {}, ... }:
 {
   options.services.youtubecast = {
     enable = lib.mkOption {
@@ -107,100 +107,112 @@
     };
   };
 
-  config = lib.mkIf config.services.youtubecast.enable (let
-    pkg = import ../modules/youtubecast.nix { pkgs = pkgs; };
-    cfg = config.services.youtubecast;
+  config = lib.mkIf config.services.youtubecast.enable (
+    let
+      bun2nix = specialArgs.bun2nix or null;
+    in
+    if bun2nix == null then
+      throw "When enabling services.youtubecast, you must pass bun2nix via specialArgs:\n  inherit (youtubecast.inputs) bun2nix;"
+    else
+      let
+        bun2nixPkg = bun2nix.packages.${pkgs.system}.bun2nix;
+        fetchBunDeps = bun2nixPkg.passthru.fetchBunDeps;
+        hook = bun2nixPkg.passthru.hook;
+        pkg = import ../modules/youtubecast.nix {
+          inherit pkgs fetchBunDeps hook;
+        };
+        cfg = config.services.youtubecast;
 
-    key = if cfg.youtubeApiKeyFile != null
-      then pkgs.lib.readFile cfg.youtubeApiKeyFile
-      else cfg.settings.youtubeApiKey;
+        key = if cfg.youtubeApiKeyFile != null
+          then pkgs.lib.readFile cfg.youtubeApiKeyFile
+          else cfg.settings.youtubeApiKey;
 
-    dl = if cfg.settings.downloadVideos then "true" else "false";
-    mc = if cfg.settings.maximumCompatibility then "true" else "false";
-    hq = if cfg.settings.highestQuality then "true" else "false";
+        dl = if cfg.settings.downloadVideos then "true" else "false";
+        mc = if cfg.settings.maximumCompatibility then "true" else "false";
+        hq = if cfg.settings.highestQuality then "true" else "false";
 
-    settingsJson = pkgs.runCommand "settings.json" { } ''
-      cat > $out <<EOF
-    {
-      "youtubeApiKey": "${key}",
-      "downloadVideos": ${dl},
-      "maximumCompatibility": ${mc},
-      "highestQuality": ${hq},
-      "cacheTimeToLive": "${toString cfg.settings.cacheTimeToLive}",
-      "minimumVideoDuration": "${toString cfg.settings.minimumVideoDuration}"
-    }
-    EOF
-    '';
+        settingsJson = pkgs.runCommand "settings.json" { } ''
+          cat > $out <<EOF
+        {
+          "youtubeApiKey": "${key}",
+          "downloadVideos": ${dl},
+          "maximumCompatibility": ${mc},
+          "highestQuality": ${hq},
+          "cacheTimeToLive": "${toString cfg.settings.cacheTimeToLive}",
+          "minimumVideoDuration": "${toString cfg.settings.minimumVideoDuration}"
+        }
+        EOF
+        '';
 
-    nginxConf = pkgs.runCommand "nginx.conf" { } ''
-      export port="${toString cfg.port}"
-      substitute ${./../nginx.conf} $out
-    '';
+        nginxConf = pkgs.runCommand "nginx.conf" { } ''
+          export port="${toString cfg.port}"
+          substitute ${./../nginx.conf} $out
+        '';
 
-    cookiesTxt = if cfg.cookiesFile != null
-      then { "youtubecast/cookies.txt" = { source = cfg.cookiesFile; }; }
-      else { };
-  in {
-    # Create service user and group
-    users.groups.${cfg.group} = {};
-    users.users.${cfg.user} = {
-      extraGroups = [ cfg.group ];
-      isSystemUser = true;
-      group = cfg.group;
-    };
+        cookiesTxt = if cfg.cookiesFile != null
+          then { "youtubecast/cookies.txt" = { source = cfg.cookiesFile; }; }
+          else { };
+      in {
+        # Create service user and group
+        users.groups.${cfg.group} = {};
+        users.users.${cfg.user} = {
+          extraGroups = [ cfg.group ];
+          isSystemUser = true;
+          group = cfg.group;
+        };
 
-    # Generate configuration files
-    environment.etc = cookiesTxt // {
-      "youtubecast/settings.json" = { source = settingsJson; };
-      "youtubecast/nginx.conf" = { source = nginxConf; };
-    };
+        # Generate configuration files
+        environment.etc = cookiesTxt // {
+          "youtubecast/settings.json" = { source = settingsJson; };
+          "youtubecast/nginx.conf" = { source = nginxConf; };
+        };
 
-    # Create content directory
-    systemd.tmpfiles.rules = [
-      "d ${cfg.contentDir} 0750 ${cfg.user} ${cfg.group} -"
-    ];
+        # Create content directory
+        systemd.tmpfiles.rules = [
+          "d ${cfg.contentDir} 0750 ${cfg.user} ${cfg.group} -"
+        ];
 
-    # Systemd service
-    systemd.services.youtubecast = {
-      description = "YouTubeCast - Generate podcast feeds from YouTube";
-      wantedBy = [ "multi-user.target" ];
-      wants = [ "nginx.service" ];
-      after = [ "nginx.service" ];
+        # Systemd service
+        systemd.services.youtubecast = {
+          description = "YouTubeCast - Generate podcast feeds from YouTube";
+          wantedBy = [ "multi-user.target" ];
+          wants = [ "nginx.service" ];
+          after = [ "nginx.service" ];
 
-      environment = {
-        APP_DIR = "${pkg}/app";
-        NGINX_CONF = "/etc/youtubecast/nginx.conf";
-        CONTENT_DIR = cfg.contentDir;
-        YOUTUBECAST_PORT = toString cfg.port;
-      } // lib.optionalAttrs (cfg.environmentFile != null) {
-        ENVIRONMENT_FILE = cfg.environmentFile;
-      };
+          environment = {
+            APP_DIR = "${pkg}/app";
+            NGINX_CONF = "/etc/youtubecast/nginx.conf";
+            CONTENT_DIR = cfg.contentDir;
+            YOUTUBECAST_PORT = toString cfg.port;
+          } // lib.optionalAttrs (cfg.environmentFile != null) {
+            ENVIRONMENT_FILE = cfg.environmentFile;
+          };
 
-      preStart = ''
-        mkdir -p $CONTENT_DIR
+          preStart = ''
+            mkdir -p $CONTENT_DIR
 
-        # Copy settings and cookies to runtime directory
-        cp /etc/youtubecast/settings.json $CONTENT_DIR/
-        if [ -f /etc/youtubecast/cookies.txt ]; then
-          cp /etc/youtubecast/cookies.txt $CONTENT_DIR/
-        fi
+            # Copy settings and cookies to runtime directory
+            cp /etc/youtubecast/settings.json $CONTENT_DIR/
+            if [ -f /etc/youtubecast/cookies.txt ]; then
+              cp /etc/youtubecast/cookies.txt $CONTENT_DIR/
+            fi
 
-        # Copy nginx config
-        cp $NGINX_CONF /etc/nginx/nginx.conf
-      '';
+            # Copy nginx config
+            cp $NGINX_CONF /etc/nginx/nginx.conf
+          '';
 
-      serviceConfig = {
-        User = cfg.user;
-        Group = cfg.group;
-        ExecStartPre = "";
-        ExecStart = "${pkg}/bin/youtubecast-start";
-        Restart = "on-failure";
-        RuntimeDirectory = "youtubecast";
-      };
-    };
+          serviceConfig = {
+            User = cfg.user;
+            Group = cfg.group;
+            ExecStartPre = "";
+            ExecStart = "${pkg}/bin/youtubecast-start";
+            Restart = "on-failure";
+            RuntimeDirectory = "youtubecast";
+          };
+        };
 
-    # Nginx is started by the wrapper script, so disable the default nginx service
-    # unless explicitly enabled by the user
-    networking.firewall.allowedTCPPorts = lib.mkIf (!config.services.nginx.enable) [ (lib.toInt (toString cfg.port)) ];
-  });
+        # Nginx is started by the wrapper script, so disable the default nginx service
+        # unless explicitly enabled by the user
+        networking.firewall.allowedTCPPorts = lib.mkIf (!config.services.nginx.enable) [ (lib.toInt (toString cfg.port)) ];
+      });
 }
