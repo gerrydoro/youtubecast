@@ -49,21 +49,7 @@ let
 in pkgs.stdenvNoCC.mkDerivation {
   name = "youtubecast";
 
-  src = pkgs.lib.cleanSourceWith {
-    filter = _name: type:
-      type == "directory" ||
-      baseNameOf _name == "package.json" ||
-      baseNameOf _name == "bun.lock" ||
-      baseNameOf _name == "tsconfig.json" ||
-      baseNameOf _name == "eslint.config.mjs" ||
-      baseNameOf _name == "start.sh" ||
-      baseNameOf _name == "nginx.conf" ||
-      (type == "directory" && baseNameOf _name == "src") ||
-      (type == "file" && pkgs.lib.hasSuffix "/bun.lock" _name) ||
-      (type == "directory" && baseNameOf _name == "ui") ||
-      (type == "file" && lib.hasSuffix ".ts" _name);
-    src = ../.;
-  };
+  src = ../.;
 
   nativeBuildInputs = commonDeps ++ [ pkgs.bun hook ];
   buildInputs = backendDeps;
