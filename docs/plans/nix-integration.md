@@ -29,7 +29,6 @@ flake.nix
 └── devShells.<system>.default   → dev environment with bun, TypeScript, lint tools
 
 modules/default.nix              → NixOS module (services.youtubecast)
-modules/lib.nix                  → shared helpers (config generation, nginx snippet)
 ```
 
 ---
@@ -237,7 +236,7 @@ pkgs.mkShell {
 |---|---|---|
 | 1 | **Write `flake.nix`** — Define inputs, outputs, `flakeUtils.forAllSystems` | `flake.nix` (new) |
 | 2 | **Write package derivation** — Frontend build + backend pack + runtime bundle | `modules/youtubecast.nix` (new) |
-| 3 | **Write NixOS module** — `services.youtubecast` options, service activation, nginx config generation | `modules/default.nix` (new), `modules/lib.nix` (new) |
+| 3 | **Write NixOS module** — `services.youtubecast` options, service activation, nginx config generation | `modules/default.nix` (new) |
 | 4 | **Write devShell** — Development environment with bun, typescript, eslint, prettier | `devshell.nix` (new) |
 | 5 | **Update `nginx.conf`** — Make port configurable via a variable for the module to use | `nginx.conf` (modify) |
 | 6 | **Test locally** — `nix build`, `nix run`, enable module on a test system | (manual testing) |
@@ -251,7 +250,6 @@ pkgs.mkShell {
 | `flake.nix` | Flake definition: packages, apps, devShells |
 | `modules/youtubecast.nix` | Package derivation (frontend + backend build) |
 | `modules/default.nix` | NixOS module (service, options, activation) |
-| `modules/lib.nix` | Shared helpers (config generation, nginx template) |
 | `devshell.nix` | Development shell definition |
 
 ## 9. Files to Modify

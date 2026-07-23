@@ -7,6 +7,7 @@ pkgs.mkShell {
   ];
 
   packages = with pkgs; [
+    bun2nix
     typescript
     eslint
     prettier

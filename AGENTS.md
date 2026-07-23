@@ -17,7 +17,7 @@ nix run .                      # Run the app
 - **Backend**: Bun + TypeScript (Hono) in `src/` — entrypoint `src/index.ts`, routes in `src/router.ts`
 - **Frontend**: React + Vite + Tailwind (v4) in `ui/` — builds to root-level `static/`
 - **Nix**: `flake.nix` orchestrates builds; `modules/youtubecast.nix` is the backend derivation; `modules/default.nix` is the NixOS service module
-- **Two bun dependency sets**: `modules/bun-root.nix` (backend), `modules/ui-bun.nix` (frontend)
+- **Two bun dependency sets**: `modules/bun-root.nix` (backend), `modules/bun-frontend.nix` (frontend)
 - **Output**: `result/app/` (source + node_modules + static), `result/bin/youtubecast-start` (wrapper script)
 
 ## Gotchas

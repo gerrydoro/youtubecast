@@ -1,6 +1,7 @@
 { pkgs }:
 
 let
+  lib = pkgs.lib;
   commonDeps = with pkgs; [
     bun
     nodejs
@@ -16,12 +17,12 @@ let
     libiconv
   ];
 
-  rootDeps = pkgs.bun2nix.fetchBunDeps {
-    bunNix = ./bun-root.nix;
+  frontendDeps = pkgs.bun2nix.passthru.fetchBunDeps {
+    bunNix = ./bun-frontend.nix;
   };
 
-  uiDeps = pkgs.bun2nix.fetchBunDeps {
-    bunNix = ./ui-bun.nix;
+  backendDepsCache = pkgs.bun2nix.passthru.fetchBunDeps {
+    bunNix = ./bun-root.nix;
   };
 
   frontend = pkgs.stdenvNoCC.mkDerivation {
@@ -29,14 +30,14 @@ let
 
     src = ../ui;
 
-    nativeBuildInputs = [ pkgs.bun2nix.hook ];
-    bunDeps = uiDeps;
-    packageJson = ../ui/package.json;
+    nativeBuildInputs = [ pkgs.bun pkgs.bun2nix.passthru.hook ];
 
-    dontUseBunInstall = true;
+    bunDeps = frontendDeps;
 
     buildPhase = ''
+      runHook preBuild
       bun run build
+      runHook postBuild
     '';
 
     installPhase = ''
@@ -59,22 +60,24 @@ in pkgs.stdenvNoCC.mkDerivation {
       baseNameOf _name == "nginx.conf" ||
       (type == "directory" && baseNameOf _name == "src") ||
       (type == "file" && pkgs.lib.hasSuffix "/bun.lock" _name) ||
-      baseNameOf _name == "bun-root.nix" ||
-      baseNameOf _name == "ui-bun.nix";
+      (type == "directory" && baseNameOf _name == "ui");
     src = ../.;
   };
 
-  nativeBuildInputs = commonDeps ++ [ pkgs.bun2nix.hook ];
+  nativeBuildInputs = commonDeps ++ [ pkgs.bun pkgs.bun2nix.passthru.hook ];
   buildInputs = backendDeps;
 
-  bunDeps = rootDeps;
-
   dontUseBunBuild = true;
+
+  bunDeps = backendDepsCache;
 
   LD_LIBRARY_PATH = "${pkgs.openssl.out}/lib:${pkgs.zlib.out}/lib:${pkgs.zstd.out}/lib";
 
   installPhase = ''
     mkdir -p $out/bin $out/app
+
+    # Install backend dependencies using bun2nix cache
+    bun install --frozen-lockfile
 
     # Copy backend source and node_modules
     cp -r src node_modules $out/app/

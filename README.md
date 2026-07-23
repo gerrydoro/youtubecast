@@ -16,7 +16,7 @@ To regenerate bun dependencies after changing `package.json`:
 
 ```bash
 bun2nix bun-root               # Regenerate modules/bun-root.nix (backend deps)
-bun2nix ui-bun --dir ui        # Regenerate modules/ui-bun.nix (frontend deps)
+bun2nix bun-frontend --dir ui  # Regenerate modules/bun-frontend.nix (frontend deps)
 ```
 
 ## NixOS Module
@@ -27,19 +27,12 @@ Import the flake into your system's `flake.nix`:
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    youtubecast = {
-      url = "github:trevorsharp/youtubecast";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    youtubecast.url = "github:trevorsharp/youtubecast";
   };
 
   outputs = { self, nixpkgs, youtubecast }: {
     nixosConfigurations.your-hostname = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
-      specialArgs = {
-        inherit (youtubecast.inputs) bun2nix;
-        nixpkgs = nixpkgs;
-      };
       modules = [
         youtubecast.nixosModules.default
         ./configuration.nix
