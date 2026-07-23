@@ -61,7 +61,7 @@ in pkgs.stdenvNoCC.mkDerivation {
       (type == "directory" && baseNameOf _name == "src") ||
       (type == "file" && pkgs.lib.hasSuffix "/bun.lock" _name) ||
       (type == "directory" && baseNameOf _name == "ui") ||
-      (type == "file" && pkgs.lib.hasSuffix ".ts" _name);
+      (type == "file" && lib.hasSuffix ".ts" _name);
     src = ../.;
   };
 
