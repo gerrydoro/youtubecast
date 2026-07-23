@@ -146,7 +146,7 @@
 
         nginxConf = pkgs.runCommand "nginx.conf" { } ''
           export port="${toString cfg.port}"
-          export nginx="${pkgs.nginx}"
+          export __nginx__="${pkgs.nginx}"
           substitute ${./../nginx.conf} $out
         '';
 
