@@ -208,6 +208,7 @@
             ExecStart = "${pkg}/bin/youtubecast-start";
             Restart = "on-failure";
             RuntimeDirectory = "youtubecast";
+            Environment = "PATH=${pkgs.bun}/bin:${pkgs.nginx}/bin";
           };
         };
 
