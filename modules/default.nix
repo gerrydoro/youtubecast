@@ -184,7 +184,7 @@
             NGINX_CONF = "/etc/youtubecast/nginx.conf";
             CONTENT_DIR = cfg.contentDir;
             YOUTUBECAST_PORT = toString cfg.port;
-            PATH = "${pkgs.bun}/bin:${pkgs.nginx}/bin";
+            PATH = lib.mkForce "${pkgs.bun}/bin:${pkgs.nginx}/bin";
           } // lib.optionalAttrs (cfg.environmentFile != null) {
             ENVIRONMENT_FILE = cfg.environmentFile;
           };
