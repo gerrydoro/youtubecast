@@ -144,10 +144,42 @@
         EOF
         '';
 
-        nginxConf = pkgs.runCommand "nginx.conf" { } ''
-          export port="${toString cfg.port}"
-          export __nginx__="${pkgs.nginx}"
-          substitute ${./../nginx.conf} $out
+        nginxConf = pkgs.writeText "nginx.conf" ''
+          worker_processes  auto;
+          error_log /tmp/nginx-error.log warn;
+
+          events {
+            worker_connections  1024;
+          }
+
+          http {
+            # MIME
+            include ${pkgs.nginx}/etc/nginx/mime.types;
+
+            # Proxy
+            proxy_http_version  1.1;
+            proxy_cache_bypass  $http_upgrade;
+            proxy_set_header Upgrade           $http_upgrade;
+            proxy_set_header Connection        "upgrade";
+            proxy_set_header Host              $host;
+            proxy_set_header X-Real-IP         $remote_addr;
+            proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Host  $host;
+            proxy_set_header X-Forwarded-Port  $server_port;
+
+            server {
+              listen ${toString cfg.port};
+
+              location /content/ {
+                root /app;
+              }
+
+              location / {
+                proxy_pass http://127.0.0.1:3001$request_uri;
+              }
+            }
+          }
         '';
 
         cookiesTxt = if cfg.cookiesFile != null
