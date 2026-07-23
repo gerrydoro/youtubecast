@@ -191,9 +191,11 @@
 
           preStart = ''
             mkdir -p $CONTENT_DIR
+            mkdir -p $APP_DIR/config
 
             # Copy settings and cookies to runtime directory
             cp /etc/youtubecast/settings.json $CONTENT_DIR/
+            cp /etc/youtubecast/settings.json $APP_DIR/config/
             if [ -f /etc/youtubecast/cookies.txt ]; then
               cp /etc/youtubecast/cookies.txt $CONTENT_DIR/
             fi
