@@ -153,9 +153,6 @@
           }
 
           http {
-            # MIME
-            include ${pkgs.nginx}/etc/nginx/mime.types;
-
             # Proxy
             proxy_http_version  1.1;
             proxy_cache_bypass  $http_upgrade;

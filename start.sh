@@ -10,8 +10,7 @@ BUN_PORT=3001
 mkdir -p "$CONTENT_DIR"
 
 # Write nginx config with the correct port
-NGINX_PKG=$(find /nix/store -maxdepth 1 -name "nginx-*" -type d 2>/dev/null | head -1)
-sed -e "s/\${port}/$NGINX_PORT/" -e "s|\${nginx}|$NGINX_PKG|" "$APP_DIR/nginx.conf" > /tmp/youtubecast-nginx.conf
+sed "s/\${port}/$NGINX_PORT/" "$APP_DIR/nginx.conf" > /tmp/youtubecast-nginx.conf
 
 # Start nginx
 nginx -c /tmp/youtubecast-nginx.conf -g "daemon off;" &
