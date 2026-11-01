@@ -8,11 +8,11 @@ const getFeedData = cacheService.withCache(
   { cacheKey: 'feed-data' },
   async (feedId: string, excludeVideos: boolean = false, maxItems?: number) => {
     if (feedId.startsWith('UC')) {
-      return await youtubeService.getChannel(feedId, excludeVideos);
+      return await youtubeService.getChannel(feedId, excludeVideos, maxItems);
     }
 
     if (feedId.startsWith('PL') || feedId.startsWith('UU')) {
-      return await youtubeService.getPlaylist(feedId, excludeVideos);
+      return await youtubeService.getPlaylist(feedId, excludeVideos, maxItems);
     }
 
     return undefined;
