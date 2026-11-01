@@ -20,7 +20,7 @@ const getYoutube = async () => {
   return youtubeInstance;
 };
 
-const getChannel = async (channelId: string, excludeVideos: boolean) => {
+const getChannel = async (channelId: string, excludeVideos: boolean, maxItems?: number) => {
   const youtube = await getYoutube();
 
   const channelResult = await youtube.channels
@@ -50,12 +50,12 @@ const getChannel = async (channelId: string, excludeVideos: boolean) => {
     return undefined;
   }
 
-  const videos = excludeVideos ? [] : await getVideosForChannel(channelId);
+  const videos = excludeVideos ? [] : await getVideosForChannel(channelId, maxItems);
 
   return { ...channel, videos };
 };
 
-const getPlaylist = async (playlistId: string, excludeVideos: boolean) => {
+const getPlaylist = async (playlistId: string, excludeVideos: boolean, maxItems?: number) => {
   const youtube = await getYoutube();
 
   const playlistResult = await youtube.playlists
@@ -72,7 +72,7 @@ const getPlaylist = async (playlistId: string, excludeVideos: boolean) => {
 
   if (!channelId) return undefined;
 
-  const channel = await getChannel(channelId, excludeVideos);
+  const channel = await getChannel(channelId, excludeVideos, maxItems);
   const playlistName = playlistId.startsWith('UU') ? `${channel?.name} (Members-Only)` : playlistResult.snippet?.title;
 
   const { data: playlist, error } = playlistValidator.safeParse({
@@ -89,69 +89,84 @@ const getPlaylist = async (playlistId: string, excludeVideos: boolean) => {
     return undefined;
   }
 
-  const videos = excludeVideos ? [] : await getVideosForPlaylist(playlistId);
+  const videos = excludeVideos ? [] : await getVideosForPlaylist(playlistId, maxItems);
 
   return { ...playlist, videos };
 };
 
-const getVideosForChannel = async (channelId: string) => {
+const getVideosForChannel = async (channelId: string, maxItems?: number) => {
   const playlistId = channelId.replace(/^UC/, 'UU');
-  return await getVideosForPlaylist(playlistId);
+  return await getVideosForPlaylist(playlistId, maxItems);
 };
 
-const getVideosForPlaylist = async (playlistId: string) => {
+const getVideosForPlaylist = async (playlistId: string, maxItems?: number) => {
   const youtube = await getYoutube();
+  const allPlaylistVideos: youtube_v3.Schema$PlaylistItem[] = [];
+  let nextPageToken: string | undefined = undefined;
 
-  const playlistItemsResult = await youtube.playlistItems
-    .list({ part: ['snippet'], maxResults: 50, playlistId })
-    .then((response) => response?.data?.items)
-    .catch((error) => {
-      logError(error);
-      return undefined;
-    });
+  do {
+    const response = await youtube.playlistItems
+      .list({
+        part: ['snippet'],
+        maxResults: 50,
+        playlistId,
+        pageToken: nextPageToken,
+      })
+      .catch((error) => {
+        logError(error);
+        return undefined;
+      });
 
-  if (!playlistItemsResult) return [];
+    if (!response?.data?.items) break;
 
-  const playlistVideos = playlistItemsResult.map((item) => ({
+    allPlaylistVideos.push(...response.data.items);
+    nextPageToken = response.data.nextPageToken;
+
+    if (maxItems && allPlaylistVideos.length >= maxItems) {
+      break;
+    }
+  } while (nextPageToken);
+
+  if (allPlaylistVideos.length === 0) return [];
+
+  const playlistVideos = allPlaylistVideos.map((item) => ({
     id: item.snippet?.resourceId?.videoId,
     publishedAt: item.snippet?.publishedAt,
   }));
 
-  if (playlistVideos.length === 0) return [];
+  const videoIds = playlistVideos.map((v) => v.id ?? '').filter(Boolean);
+  const finalVideos: any[] = [];
 
-  const videoDetailsResult = await youtube.videos
-    .list({ part: ['snippet,contentDetails,status'], maxResults: 50, id: playlistVideos.map((v) => v.id ?? '') })
-    .then((response) => response?.data?.items)
-    .catch((error) => {
-      logError(error);
-      return undefined;
-    });
+  // youtube.videos.list only accepts 50 IDs at a time
+  for (let i = 0; i < videoIds.length; i += 50) {
+    const chunk = videoIds.slice(i, i + 50);
+    const videoDetailsResult = await youtube.videos
+      .list({ part: ['snippet,contentDetails,status'], id: chunk })
+      .then((response) => response?.data?.items)
+      .catch((error) => {
+        logError(error);
+        return undefined;
+      });
 
-  if (!videoDetailsResult) return [];
-
-  const config = await configService.getConfig();
-
-  const { data: videos, error } = z.array(videoValidator).safeParse(
-    videoDetailsResult
-      .filter((video) => shouldIncludeVideoInFeed(video, config))
-      .map((video) => ({
-        id: video.id,
-        title: video.snippet?.title,
-        description: video.snippet?.description,
-        duration: getDuration(video.contentDetails?.duration),
-        date: getDate(video.snippet?.publishedAt, playlistVideos.find((v) => v.id === video.id)?.publishedAt),
-        link: video.id ? getYoutubeLink(video.id) : '',
-      })),
-  );
-
-  if (error) {
-    logError(error);
-    return [];
+    if (videoDetailsResult) {
+      const config = await configService.getConfig();
+      const parsedVideos = videoDetailsResult
+        .filter((video) => shouldIncludeVideoInFeed(video, config))
+        .map((video) => ({
+          id: video.id,
+          title: video.snippet?.title,
+          description: video.snippet?.description,
+          duration: getDuration(video.contentDetails?.duration),
+          date: getDate(video.snippet?.publishedAt, playlistVideos.find((v) => v.id === video.id)?.publishedAt),
+          link: video.id ? getYoutubeLink(video.id) : '',
+        }));
+      finalVideos.push(...parsedVideos);
+    }
   }
 
-  videos.sort((a, b) => (a.date < b.date ? 1 : -1));
+  finalVideos.sort((a, b) => (a.date < b.date ? 1 : -1));
 
-  return videos;
+  return maxItems ? finalVideos.slice(0, maxItems) : finalVideos;
 };
 
 const shouldIncludeVideoInFeed = (video: youtube_v3.Schema$Video, config: { minimumVideoDuration: number }) => {

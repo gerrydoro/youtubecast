@@ -20,12 +20,7 @@ const getFeedData = cacheService.withCache(
 );
 
 const generatePodcastFeed = async (baseUrl: string, feedId: string, isAudioOnly: boolean, maxItems?: number) => {
-  const feedData = await getFeedData(
-    feedId,
-    isAudioOnly ? false : undefined,
-    isAudioOnly ? undefined : false,
-    maxItems,
-  );
+  const feedData = await getFeedData(feedId, isAudioOnly ? false : undefined, maxItems);
 
   if (!feedData) return undefined;
 
