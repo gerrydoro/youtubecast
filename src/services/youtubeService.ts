@@ -2,8 +2,6 @@ import { google, youtube_v3 } from 'googleapis';
 import configService from './configService';
 import channelValidator from '../validators/channelValidator';
 import playlistValidator from '../validators/playlistValidator';
-import { z } from 'zod';
-import videoValidator from '../validators/videoValidator';
 import getYoutubeLink from '../utils/getYoutubeLink';
 
 let youtubeInstance: youtube_v3.Youtube | undefined = undefined;
@@ -105,22 +103,25 @@ const getVideosForPlaylist = async (playlistId: string, maxItems?: number) => {
   let nextPageToken: string | undefined = undefined;
 
   do {
-    const response = await youtube.playlistItems
+    // annotated because the pagination loop feeds nextPageToken back into the
+    // request, which TS cannot infer without a circular reference
+    const response: youtube_v3.Schema$PlaylistItemListResponse | undefined = await youtube.playlistItems
       .list({
         part: ['snippet'],
         maxResults: 50,
         playlistId,
         pageToken: nextPageToken,
       })
+      .then((result) => result?.data)
       .catch((error) => {
         logError(error);
         return undefined;
       });
 
-    if (!response?.data?.items) break;
+    if (!response?.items) break;
 
-    allPlaylistVideos.push(...response.data.items);
-    nextPageToken = response.data.nextPageToken;
+    allPlaylistVideos.push(...response.items);
+    nextPageToken = response.nextPageToken ?? undefined;
 
     if (maxItems && allPlaylistVideos.length >= maxItems) {
       break;
@@ -135,7 +136,14 @@ const getVideosForPlaylist = async (playlistId: string, maxItems?: number) => {
   }));
 
   const videoIds = playlistVideos.map((v) => v.id ?? '').filter(Boolean);
-  const finalVideos: any[] = [];
+  const finalVideos: {
+    id: string;
+    title: string;
+    description: string;
+    duration: number;
+    date: string;
+    link: string;
+  }[] = [];
 
   // youtube.videos.list only accepts 50 IDs at a time
   for (let i = 0; i < videoIds.length; i += 50) {
@@ -153,18 +161,18 @@ const getVideosForPlaylist = async (playlistId: string, maxItems?: number) => {
       const parsedVideos = videoDetailsResult
         .filter((video) => shouldIncludeVideoInFeed(video, config))
         .map((video) => ({
-          id: video.id,
-          title: video.snippet?.title,
-          description: video.snippet?.description,
+          id: video.id ?? '',
+          title: video.snippet?.title ?? '',
+          description: video.snippet?.description ?? '',
           duration: getDuration(video.contentDetails?.duration),
-          date: getDate(video.snippet?.publishedAt, playlistVideos.find((v) => v.id === video.id)?.publishedAt),
+          date: getDate(video.snippet?.publishedAt, playlistVideos.find((v) => v.id === video.id)?.publishedAt) ?? '',
           link: video.id ? getYoutubeLink(video.id) : '',
         }));
       finalVideos.push(...parsedVideos);
     }
   }
 
-  finalVideos.sort((a, b) => (a.date < b.date ? 1 : -1));
+  finalVideos.sort((a, b) => ((a.date ?? '') < (b.date ?? '') ? 1 : -1));
 
   return maxItems ? finalVideos.slice(0, maxItems) : finalVideos;
 };
