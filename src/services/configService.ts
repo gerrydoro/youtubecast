@@ -1,4 +1,4 @@
-import { readdir } from 'node:fs/promises';
+import { mkdir, readdir } from 'node:fs/promises';
 import { z } from 'zod';
 import configValidator from '../validators/configValidator';
 import logZodError from '../utils/logZodError';
@@ -27,6 +27,15 @@ const getConfig = async () => {
 
 const verifyConfigFolderExists = async () => {
   try {
+    await readdir(env.CONFIG_FOLDER_PATH);
+    return;
+  } catch {
+    // First run: the container has no config volume mounted yet. Create the
+    // folder so the app can write settings.json into it.
+  }
+
+  try {
+    await mkdir(env.CONFIG_FOLDER_PATH, { recursive: true });
     await readdir(env.CONFIG_FOLDER_PATH);
   } catch {
     throw 'Config folder does not exist. Please mount a volume at the path "/app/config".';
