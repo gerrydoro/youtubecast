@@ -67,6 +67,40 @@ let
       source = cfg.cookiesFile;
     };
   };
+
+  # Runs as the service user, after the ExecStartPre repair step has created
+  # and re-owned the tree. settings.json is written on every start because the
+  # key may live in a runtime secret, and a first boot needs the config folder
+  # in place before the app's getConfig() runs.
+  preStartScript = pkgs.writeShellScript "youtubecast-pre-start" ''
+    set -e
+
+    mkdir -p ${configPath}
+    mkdir -p $CONTENT_DIR
+
+    ${apiKeyCommand}
+
+    # jq does the substitution and the JSON escaping, so no key value has to
+    # survive a shell round-trip. The template holds every other setting.
+    ${pkgs.jq}/bin/jq --arg key "$YOUTUBE_API_KEY" \
+      '.youtubeApiKey = $key' ${settingsTemplate} >${configPath}/settings.json
+
+    if [ -f /etc/youtubecast/cookies.txt ]; then
+      cp /etc/youtubecast/cookies.txt ${configPath}/cookies.txt
+    fi
+
+    # Only create the link when there is nothing to point at, and only after
+    # dropping a stale one: `ln -sfn A B` links *into* B when B is a real
+    # directory, which silently hides the mistake and (as a root-owned
+    # /var/lib tree shows) fails the whole start.
+    if [ -L ${contentLink} ] && [ "$(readlink ${contentLink})" != "$CONTENT_DIR" ]; then
+      rm -f ${contentLink}
+    fi
+
+    if [ ! -e ${contentLink} ] && [ ! -L ${contentLink} ]; then
+      ln -sfnT "$CONTENT_DIR" ${contentLink}
+    fi
+  '';
 in
 {
   options.services.youtubecast = {
@@ -271,29 +305,25 @@ in
         ENVIRONMENT_FILE = cfg.environmentFile;
       };
 
-      # Regenerated on every start: the key may live in a runtime secret, and a
-      # first boot needs the config folder in place before getConfig() runs.
-      preStart = ''
-        mkdir -p ${configPath}
-        mkdir -p $CONTENT_DIR
-
-        ${apiKeyCommand}
-
-        # jq does the substitution and the JSON escaping, so no key value has to
-        # survive a shell round-trip. The template holds every other setting.
-        ${pkgs.jq}/bin/jq --arg key "$YOUTUBE_API_KEY" \
-          '.youtubeApiKey = $key' ${settingsTemplate} >${configPath}/settings.json
-
-        if [ -f /etc/youtubecast/cookies.txt ]; then
-          cp /etc/youtubecast/cookies.txt ${configPath}/cookies.txt
-        fi
-
-        ln -sfn $CONTENT_DIR ${contentLink}
-      '';
-
       serviceConfig = {
         User = cfg.user;
         Group = cfg.group;
+        # systemd's leading `+` runs a command with full privileges, ignoring
+        # User/Group. NixOS emits the serviceConfig.ExecStartPre entries in
+        # order, and unlike the `preStart` option they can be prefixed with it,
+        # so the tree is created and repaired as root here and the service-user
+        # script below only has to fill it in.
+        # The repair matters because systemd-tmpfiles applies the declared
+        # ownership only to directories it creates itself: a /var/lib tree left
+        # root-owned by an earlier version of this module (or by the app
+        # running outside the wrapper) stays unwritable by the service user,
+        # and the unit then fails on `jq`/`ln` on every start.
+        ExecStartPre = [
+          "+${pkgs.coreutils}/bin/mkdir -p ${configPath} $CONTENT_DIR"
+          "+${pkgs.coreutils}/bin/chown ${cfg.user}:${cfg.group} ${cfg.contentDir} ${configBase}"
+          "+${pkgs.coreutils}/bin/chown -R ${cfg.user}:${cfg.group} ${configPath}"
+          preStartScript
+        ];
         ExecStart = "${pkg}/bin/youtubecast-start";
         Restart = "on-failure";
         RuntimeDirectory = "youtubecast";
